@@ -21,10 +21,9 @@ class AnalizadorLexicoAFD:
             'frozenset', 'getattr', 'globals', 'hasattr', 'hash', 'help',
             'hex', 'id', 'input', 'isinstance', 'issubclass', 'iter', 'len',
             'locals', 'map', 'max', 'memoryview', 'min', 'next', 'object',
-            'oct', 'open', 'ord', 'pow', 'print', 'property', 'range',
+            'oct', 'open', 'ord', 'pow', 'property',
             'repr', 'reversed', 'round', 'setattr', 'slice', 'sorted',
-            'staticmethod', 'sum', 'super', 'type', 'vars', 'zip', '__import__',
-            'self'
+            'staticmethod', 'sum', 'super', 'type', 'vars', 'zip', '__import__'
         ]
         #mapeo de operaciones y simbolos con sus respectivos tokens
         self.operadores={
@@ -128,6 +127,7 @@ class AnalizadorLexicoAFD:
             if estado_resultado in ("qERR", "final"):
                 break
             estado=nuevo_estado
+        self.tokens.append(f"<$,{self.linea_actual},{self.columna_actual}>")
         return self.tokens, self.errores
     
     def mirar(self, k=0):
