@@ -375,12 +375,40 @@ class AnalizadorSintactico:
         self.aplicar_produccion('expr_comparacion')
 
     def expr_comp_prime(self):
-        self.aplicar_produccion('expr_comp_prime')
+        tk = self.token_actual()
+        comparadores = {
+            'tk_menor', 'tk_mayor', 'tk_menor_igual',
+            'tk_mayor_igual', 'tk_igual', 'tk_distinto'
+        }
+
+        if tk in comparadores:
+            self.op_comp()
+            # verificar que viene algo válido para una expresión
+            siguiente = self.token_actual()
+            primeros_expr = {
+                'id', 'tk_entero', 'tk_string',
+                'True', 'False', 'tk_par_izq'
+            }
+
+            if siguiente not in primeros_expr:
+                # aquí se detecta el caso de '>' sin valor a la derecha
+                self.reportar_error(list(primeros_expr))
+            self.expr_aritmetica()
+            self.expr_comp_prime()
+        else:
+            return
     
     def op_comp(self):
         self.aplicar_produccion('op_comp')
 
     def expr_aritmetica(self):
+        tk = self.token_actual()
+        primeros_validos = {
+            'id', 'tk_entero', 'tk_string',
+            'True', 'False', 'tk_par_izq'
+        }
+        if tk not in primeros_validos:
+            self.reportar_error(list(primeros_validos))
         self.aplicar_produccion('expr_aritmetica')
 
     def expr_arit_prime(self):
@@ -511,3 +539,4 @@ if __name__=="__main__":
         print(f"resultado guardado en: '{analizador.archivo_salida}'")
     except SystemExit:
         pass
+
