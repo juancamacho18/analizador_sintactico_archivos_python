@@ -5,7 +5,7 @@ class AnalizadorSintactico:
         self.tokens=[]
         self.posicion=0
         self.error_sintactico=None
-        self.archivo_salida=None
+        self.archivo_salida=None 
         self.gramatica={
             #programa principal
             "programa": [["sentencias"]],
@@ -60,7 +60,10 @@ class AnalizadorSintactico:
             "expr_aritmetica": [["termino", "expr_arit_prime"]],
             "expr_arit_prime": [["tk_suma", "termino", "expr_arit_prime"], 
                                ["tk_resta", "termino", "expr_arit_prime"], ["ε"]],
-            "termino": [["factor", "termino_prime"]],
+            "termino": [["potencia", "termino_prime"]],
+            "potencia": [["factor", "potencia_prime"]],
+            "potencia_prime": [["tk_potencia", "factor", "potencia_prime"], ["ε"]],
+
             "termino_prime": [["tk_multi", "factor", "termino_prime"], 
                              ["tk_div", "factor", "termino_prime"], 
                              ["tk_modulo", "factor", "termino_prime"], ["ε"]],
@@ -91,12 +94,12 @@ class AnalizadorSintactico:
                 ["input", "tk_par_izq", "argumentos_io", "tk_par_der"],
                 ["print", "tk_par_izq", "argumentos_io", "tk_par_der"]
             ],
-            
             "argumentos_io": [
-                ["expresion"],
-                ["tk_string"],
+                ["expresion", "mas_args_io"],
+                ["tk_string", "mas_args_io"],
                 ["ε"]
             ],
+            "mas_args_io": [["tk_coma", "argumentos_io"], ["ε"]],
 
             "sufijos": [["sufijo", "sufijos"], ["ε"]],
             "sufijo": [
@@ -207,6 +210,34 @@ class AnalizadorSintactico:
             return token.strip("<>").split(",")[0].strip()
         return "$"
     
+    def ver_anterior_token(self):
+        if self.posicion - 1 >= 0 and self.posicion - 1 < len(self.tokens):
+            token = self.tokens[self.posicion - 1]
+            partes = token.strip("<>").split(",")
+
+            if len(partes) == 4:
+                tipo, lexema, linea, columna = partes
+            elif len(partes) == 3:
+                tipo, linea, columna = partes
+                lexema = ""
+            else:
+                # Token vacío o corrupto
+                return None
+
+            try:
+                linea = int(linea)
+                columna = int(columna)
+            except:
+                linea, columna = 0, 0
+
+            return {
+                "tipo": tipo.strip(),
+                "lexema": lexema.strip(),
+                "linea": linea,
+                "columna": columna
+            }
+        return None
+    
     def obtener_info_token(self):
         if self.posicion < len(self.tokens):
             token=self.tokens[self.posicion]
@@ -216,15 +247,15 @@ class AnalizadorSintactico:
                 return {
                     'tipo': partes[0].strip(),
                     'lexema': partes[1].strip(),
-                    'linea': partes[2].strip(),
-                    'columna': partes[3].strip()
+                    'linea': int(partes[2].strip()),
+                    'columna': int(partes[3].strip())
                 }
             elif len(partes)==3:
                 return {
                     'tipo': partes[0].strip(),
                     'lexema': partes[0].strip(),
-                    'linea': partes[1].strip(),
-                    'columna': partes[2].strip()
+                    'linea': int(partes[1].strip()),
+                    'columna': int(partes[2].strip())
                 }
         return {'tipo': '$', 'lexema': '', 'linea': '?', 'columna': '?'}
 
@@ -257,25 +288,40 @@ class AnalizadorSintactico:
             'tk_mayor': '>',
             'tk_menor_igual': '<=',
             'tk_mayor_igual': '>=',
-            'tk_modulo': '%'
+            'tk_modulo': '%',
+            'tk_potencia': '**',
+            'tk_string_incompleto': 'cadena sin cerrar',
+            'tk_entero': 'numero entero',
+            'tk_float': 'numero decimal',
+            'tk_string': 'cadena',
         }
         return mapeo.get(token, token)
 
     #REPORTE DE ERRORES
     def reportar_error(self, esperados):
-        info=self.obtener_info_token()
-        lexema=info['lexema'] if info['lexema'] else info['tipo']
-        linea=info['linea']
-        columna=info['columna']
+        info = self.obtener_info_token()
+        lexema = info['lexema'] if info['lexema'] else info['tipo']
+
+        anterior = self.ver_anterior_token()
+
+        linea = info['linea']
+        columna = info['columna']
+
         
+        if anterior and info['linea'] > anterior['linea']:
+            linea = anterior['linea']
+            columna = anterior['columna'] + len(anterior['lexema'])
+        
+        if self.token_actual() == 'tk_string_incompleto' or info.get('tipo') == 'tk_string_incompleto':
+            esperados = ['tk_string']
+            
         encontrado=self.convertir_token_legible(lexema)
         esperados_legibles=[self.convertir_token_legible(e) for e in esperados]
         esperados_formateados= ', '.join(f'"{e}"' for e in esperados_legibles)
-        mensaje= f"<{linea},{columna}> Error sintactico: se encontro: \"{encontrado}\"; se esperaba: {esperados_formateados}."
-        
+        mensaje = f"<{linea},{columna}> Error sintactico: se encontro: \"{encontrado}\"; se esperaba: {esperados_formateados}."
         with open(self.archivo_salida, "w", encoding="utf-8") as f:
             f.write(mensaje)
-        print(f"resultado guardado en: 'prueba.py.txt'")
+        print(mensaje)
         exit(1)
 
     def reportar_error_indentacion(self):
@@ -286,7 +332,7 @@ class AnalizadorSintactico:
         
         with open(self.archivo_salida, "w", encoding="utf-8") as f:
             f.write(mensaje)
-        print(f"resultado guardado en: 'prueba.py.txt'")
+        print(mensaje)
         exit(1)
 
     def predicciones_clave(self, nombre_no_terminal):
@@ -312,7 +358,7 @@ class AnalizadorSintactico:
                     if simbolo in self.gramatica:  
                         getattr(self, simbolo)()
                     elif simbolo!='ε':
-                        self.emparejar(simbolo)
+                        self.emparejar(simbolo) 
                 return
 
         if nombre_no_terminal in self.siguiente and tk in self.siguiente[nombre_no_terminal]:
@@ -448,12 +494,23 @@ class AnalizadorSintactico:
 
     def termino(self):
         self.aplicar_produccion('termino')
+    
+    def potencia(self):
+        self.aplicar_produccion('potencia')
+        
+    def potencia_prime(self):
+        self.aplicar_produccion('potencia_prime')       
+    
 
     def termino_prime(self):
         self.aplicar_produccion('termino_prime')
 
     def factor(self):
-        self.aplicar_produccion('factor')
+        tk = self.token_actual()
+        if tk == "tk_string_incompleto":
+            self.reportar_error(['tk_string'])
+        else:
+            self.aplicar_produccion('factor')
 
     def conversion_tipo(self):
         self.aplicar_produccion('conversion_tipo')
@@ -466,6 +523,9 @@ class AnalizadorSintactico:
 
     def argumentos_io(self):
         self.aplicar_produccion('argumentos_io')
+        
+    def mas_args_io(self):
+        self.aplicar_produccion('mas_args_io')
     
     def sufijos(self):
         self.aplicar_produccion('sufijos')
