@@ -62,20 +62,47 @@ class AnalizadorSintactico:
                                ["tk_resta", "termino", "expr_arit_prime"], ["ε"]],
             "termino": [["factor", "termino_prime"]],
             "termino_prime": [["tk_multi", "factor", "termino_prime"], 
-                             ["tk_div", "factor", "termino_prime"], ["ε"]],
+                             ["tk_div", "factor", "termino_prime"], 
+                             ["tk_modulo", "factor", "termino_prime"], ["ε"]],
             "factor": [
                 ["id", "sufijos"],
                 ["tk_entero"],
                 ["tk_string"],
                 ["True"],
                 ["False"],
-                ["tk_par_izq", "expresion", "tk_par_der"]
+                ["tk_par_izq", "expresion", "tk_par_der"],
+                ["conversion_tipo"],
+                ["llamada_io"]
             ],
             
+            "conversion_tipo": [
+                ["int", "tk_par_izq", "arg_conversion", "tk_par_der"],
+                ["float", "tk_par_izq", "arg_conversion", "tk_par_der"],
+                ["str", "tk_par_izq", "arg_conversion", "tk_par_der"],
+                ["bool", "tk_par_izq", "arg_conversion", "tk_par_der"]
+            ],
+            
+            "arg_conversion": [
+                ["id"],
+                ["expresion"]
+            ],
+            
+            "llamada_io": [
+                ["input", "tk_par_izq", "argumentos_io", "tk_par_der"],
+                ["print", "tk_par_izq", "argumentos_io", "tk_par_der"]
+            ],
+            
+            "argumentos_io": [
+                ["expresion"],
+                ["tk_string"],
+                ["ε"]
+            ],
+
             "sufijos": [["sufijo", "sufijos"], ["ε"]],
             "sufijo": [
                 ["tk_par_izq", "argumentos", "tk_par_der"],
-                ["tk_cor_izq", "expresion", "tk_cor_der"]
+                ["tk_cor_izq", "expresion", "tk_cor_der"],
+                ["tk_string"]
             ],
             
             "argumentos": [["expresion", "mas_args"], ["ε"]],
@@ -201,7 +228,7 @@ class AnalizadorSintactico:
                 }
         return {'tipo': '$', 'lexema': '', 'linea': '?', 'columna': '?'}
 
-    def match(self, esperado):
+    def emparejar(self, esperado):
         actual=self.token_actual()
         if actual==esperado:
             self.posicion+=1
@@ -230,6 +257,7 @@ class AnalizadorSintactico:
             'tk_mayor': '>',
             'tk_menor_igual': '<=',
             'tk_mayor_igual': '>=',
+            'tk_modulo': '%'
         }
         return mapeo.get(token, token)
 
@@ -284,7 +312,7 @@ class AnalizadorSintactico:
                     if simbolo in self.gramatica:  
                         getattr(self, simbolo)()
                     elif simbolo!='ε':
-                        self.match(simbolo)
+                        self.emparejar(simbolo)
                 return
 
         if nombre_no_terminal in self.siguiente and tk in self.siguiente[nombre_no_terminal]:
@@ -387,7 +415,9 @@ class AnalizadorSintactico:
             siguiente = self.token_actual()
             primeros_expr = {
                 'id', 'tk_entero', 'tk_string',
-                'True', 'False', 'tk_par_izq'
+                'True', 'False', 'tk_par_izq',
+                'int', 'float', 'input', 'print',
+                'str', 'bool'
             }
 
             if siguiente not in primeros_expr:
@@ -405,7 +435,9 @@ class AnalizadorSintactico:
         tk = self.token_actual()
         primeros_validos = {
             'id', 'tk_entero', 'tk_string',
-            'True', 'False', 'tk_par_izq'
+            'True', 'False', 'tk_par_izq',
+            'int', 'float', 'input', 'print',
+            'str', 'bool'
         }
         if tk not in primeros_validos:
             self.reportar_error(list(primeros_validos))
@@ -423,6 +455,18 @@ class AnalizadorSintactico:
     def factor(self):
         self.aplicar_produccion('factor')
 
+    def conversion_tipo(self):
+        self.aplicar_produccion('conversion_tipo')
+
+    def arg_conversion(self):
+        self.aplicar_produccion('arg_conversion')
+    
+    def llamada_io(self):
+        self.aplicar_produccion('llamada_io')
+
+    def argumentos_io(self):
+        self.aplicar_produccion('argumentos_io')
+    
     def sufijos(self):
         self.aplicar_produccion('sufijos')
 
@@ -434,6 +478,7 @@ class AnalizadorSintactico:
 
     def mas_args(self):
         self.aplicar_produccion('mas_args')
+    
 
     #BLOQUES
     def bloque(self):
@@ -539,4 +584,3 @@ if __name__=="__main__":
         print(f"resultado guardado en: '{analizador.archivo_salida}'")
     except SystemExit:
         pass
-
