@@ -13,7 +13,7 @@ class AnalizadorLexicoAFD:
             'break', 'class', 'continue', 'def', 'del', 'elif', 'else', 'except',
             'finally', 'for', 'from', 'global', 'if', 'import', 'in', 'is',
             'lambda', 'nonlocal', 'not', 'or', 'pass', 'raise', 'return',
-            'try', 'while', 'with', 'yield',
+            'try', 'while', 'with', 'yield', 'int', 'input', 'print',
             'int', 'float', 'str', 'bool', 'list', 'dict', 'set', 'tuple', 'object',
             'abs', 'all', 'any', 'ascii', 'bin', 'breakpoint', 'callable',
             'chr', 'classmethod', 'compile', 'complex', 'delattr', 'dir',
